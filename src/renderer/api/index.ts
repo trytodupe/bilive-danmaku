@@ -1,4 +1,5 @@
 import nodeFetch from 'node-fetch';
+import {Md5} from 'ts-md5';
 import UserAvatarDao from '../dao/UserAvatarDao';
 import { CmdType } from '../components/Danmaku/MsgModel';
 import LiveRoomDao, { LiveRoomData } from '../dao/LiveRoomDao';
@@ -10,6 +11,8 @@ import i18n from '../i18n';
 export interface SessionInfo {
   uid: number;
   session: string;
+  img_key: string;
+  sub_key: string;
 }
 
 export interface UserInfo {
@@ -114,6 +117,36 @@ const API_FINGER_SPI = `https://api.bilibili.com/x/frontend/finger/spi/`;
 const API_SERVER_PACKAGE = `https://cdn.jsdelivr.net/gh/beats0/bilive-danmaku/package.json`;
 const API_SESSION_INFO = `https://api.bilibili.com/x/web-interface/nav`;
 
+// wbi相关
+const MixinKeyEncTab = [
+  46, 47, 18, 2, 53, 8, 23, 32, 15, 50, 10, 31, 58, 3, 45, 35, 27, 43, 5, 49,
+  33, 9, 42, 19, 29, 28, 14, 39, 12, 38, 41, 13, 37, 48, 7, 16, 24, 55, 40,
+  61, 26, 17, 0, 1, 60, 51, 30, 4, 22, 25, 54, 21, 56, 59, 6, 63, 57, 62, 11,
+  36, 20, 34, 44, 52
+];
+const getMixinKey = (orig: string) => MixinKeyEncTab.map(n => orig[n]).join('').slice(0, 32);
+const encWbi = (
+  params: Record<string, string | number>, 
+  img_key: string,
+  sub_key: string
+):string => {
+  const mixin_key = getMixinKey(img_key + sub_key);
+  const curr_time = Math.round(Date.now() / 1000);
+  const chr_filter = /[!'()*]/g;
+
+  params.wts = curr_time;
+  
+  const query = Object.keys(params)
+    .sort()
+    .map((key) => {
+      const value = params[key].toString().replace(chr_filter, '');
+      return `${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
+    })
+    .join('&');
+  const wbi_sign = Md5.hashStr(query + mixin_key);
+  return query + '&w_rid=' + wbi_sign;
+}
+
 // 获取我的信息
 export async function getSessionInfoData(
   session: string
@@ -128,11 +161,23 @@ export async function getSessionInfoData(
   const sessionInfo: SessionInfo = {
     uid: 0,
     session,
+    img_key: "",
+    sub_key: "",
   };
   try {
     const data = await response.json();
     if (data.code === 0) {
       sessionInfo.uid = data.data.mid;
+      const img_url = data.data.wbi_img.img_url;
+      const sub_url = data.data.wbi_img.sub_url;
+      sessionInfo.img_key = img_url.slice(
+        img_url.lastIndexOf('/') + 1,
+        img_url.lastIndexOf('.')
+      );
+      sessionInfo.sub_key = sub_url.slice(
+        sub_url.lastIndexOf('/') + 1,
+        sub_url.lastIndexOf('.')
+      );
     }
   } catch (e) {
     console.log('[error]', e);
@@ -306,12 +351,16 @@ export async function getResentSuperChat(
 export async function getDanmuInfoData(roomid: number): Promise<DanmuInfoData | null> {
   return new Promise<DanmuInfoData>((resolve, reject) => {
     const userInfoSessionStr = UserInfoDao.get(UserInfoDaoNS.UserInfoSession);
+    const userInfoImgKeyStr = UserInfoDao.get(UserInfoDaoNS.UserInfoImgKey);
+    const userInfoSubKeyStr = UserInfoDao.get(UserInfoDaoNS.UserInfoSubKey);
+    const params = { id: `${roomid}`, type: '0'};
+    const query = encWbi(params, userInfoImgKeyStr, userInfoSubKeyStr);
     const headers = {
       Cookie: userInfoSessionStr
         ? `SESSDATA=${userInfoSessionStr};`
         : userInfoSessionStr,
     };
-    nodeFetch(`${API_DANMU_INFO}?id=${roomid}&type=0`, {
+    nodeFetch(`${API_DANMU_INFO}?${query}`, {
       method: 'GET',
       headers,
     })

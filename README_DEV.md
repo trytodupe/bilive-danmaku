@@ -2,7 +2,7 @@
 
 开发文档
 
-设置源
+设置源，目前配置了.npmrc，指定了electron，其他的看样子不需要（我配置了终端代理）。
 
 ```
 npm config set registry https://registry.npmmirror.com
@@ -20,7 +20,7 @@ eslint 配置不生效，JSX 代码格式各种警告，实在搞不动了，有
 
 ## 命令
 
-调试
+调试，请使用node18进行开发。
 
 ```sh
 # install

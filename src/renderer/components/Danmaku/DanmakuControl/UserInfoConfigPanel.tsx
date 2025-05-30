@@ -57,6 +57,8 @@ export default function CustomStyledPanel(props: LiveRoomListsProps) {
 
     UserInfoDao.save(UserInfoDaoNS.UserInfoUid, String(sessionInfo.uid));
     UserInfoDao.save(UserInfoDaoNS.UserInfoSession, userSession);
+    UserInfoDao.save(UserInfoDaoNS.UserInfoImgKey, sessionInfo.img_key);
+    UserInfoDao.save(UserInfoDaoNS.UserInfoSubKey, sessionInfo.sub_key);
     refresh(null);
   };
 
