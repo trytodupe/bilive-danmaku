@@ -349,16 +349,21 @@ export async function getResentSuperChat(
 
 // 获取danmuInfo
 export async function getDanmuInfoData(roomid: number): Promise<DanmuInfoData | null> {
-  return new Promise<DanmuInfoData>((resolve, reject) => {
+  return new Promise<DanmuInfoData>(async (resolve, reject) => {
     const userInfoSessionStr = UserInfoDao.get(UserInfoDaoNS.UserInfoSession);
     const userInfoImgKeyStr = UserInfoDao.get(UserInfoDaoNS.UserInfoImgKey);
     const userInfoSubKeyStr = UserInfoDao.get(UserInfoDaoNS.UserInfoSubKey);
     const params = { id: `${roomid}`, type: '0'};
     const query = encWbi(params, userInfoImgKeyStr, userInfoSubKeyStr);
+    const buvid3 = await getBuvid3();
+    const buvid4 = await getBuvid4();
+    const cookies = [
+      userInfoSessionStr ? `SESSDATA=${userInfoSessionStr}` : userInfoSessionStr,
+      buvid3 ? `buvid3=${buvid3}` : buvid3,
+      buvid4 ? `buvid4=${buvid4}` : buvid4,
+    ].join('; ');
     const headers = {
-      Cookie: userInfoSessionStr
-        ? `SESSDATA=${userInfoSessionStr};`
-        : userInfoSessionStr,
+      Cookie: cookies,
     };
     nodeFetch(`${API_DANMU_INFO}?${query}`, {
       method: 'GET',
@@ -403,6 +408,26 @@ export async function getBuvid3(): Promise<string> {
   if (data.code === 0) {
     const buvid3 = data.data.b_3;
     return buvid3;
+  }
+  return '';
+}
+
+// 获取buvid4
+export async function getBuvid4(): Promise<string> {
+  const userInfoSessionStr = UserInfoDao.get(UserInfoDaoNS.UserInfoSession);
+  const headers = {
+    Cookie: userInfoSessionStr
+      ? `SESSDATA=${userInfoSessionStr};`
+      : userInfoSessionStr,
+  };
+  const response = await nodeFetch(API_FINGER_SPI, {
+    method: 'GET',
+    headers,
+  });
+  const data = await response.json();
+  if (data.code === 0) {
+    const buvid4 = data.data.b_4;
+    return buvid4;
   }
   return '';
 }
